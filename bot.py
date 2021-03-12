@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""adminbot is designed to give human rights back to Adam on the TopGays
-discord server."""
+"""badbot is designed to give human rights back to Adam on the TopGays
+discord server and is basically a shitty macbot in some respects."""
 
 
 import asyncio
@@ -13,9 +13,9 @@ import discord
 
 from discord.ext import commands, tasks
 from globals import *
-from cogs.chatbot import SpamBot
-from cogs.abuse import AdminAbuse
-from cogs.evade import Evasion
+from cogs.chat import SpamBot
+from cogs.admin import AdminBot
+from cogs.embeds import MessageEmbeds
 from cogs import utility
 
 # The bot itself
@@ -28,8 +28,8 @@ bot = commands.Bot(
 )
 
 bot.add_cog(SpamBot(bot))
-bot.add_cog(AdminAbuse(bot))
-bot.add_cog(Evasion(bot))
+bot.add_cog(AdminBot(bot))
+bot.add_cog(MessageEmbeds(bot))
 
 # Misc commands ----------------------------------------------------------------
 
@@ -115,7 +115,7 @@ async def daily_message():
 
 
 @daily_message.before_loop
-async def sleep_untill_midnight():
+async def sleep_until_midnight():
     """Determine how long it is until the end of the day , then sleep the bot
     until that time + 5 seconds."""
 
