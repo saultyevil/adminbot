@@ -14,7 +14,7 @@ import shutil
 
 BAD_WORD = os.environ["BAD_WORD"].lower()
 BAD_WORD_PLURAL = BAD_WORD + "s"
-BOT_RESPOND_CHANCE = 0.005
+BOT_RESPOND_CHANCE = 0.01
 
 
 class SpamBot(commands.Cog, name="Spam"):
@@ -105,6 +105,8 @@ class SpamBot(commands.Cog, name="Spam"):
         if len(self.messages) == 0:
             if ctx:
                 await ctx.send("I have nothing new to learn :disappointed:")
+            else:
+                utility.log("all", "nothing new to teach mc bot")
             return
 
         phrases = self.get_teachable_phrases()
@@ -113,6 +115,8 @@ class SpamBot(commands.Cog, name="Spam"):
         if len(phrases) == 0:
             if ctx:
                 await ctx.send("I have nothing new and safe to learn :disappointed:")
+            else:
+                utility.log("all", "nothing new and safe to teach mc bot")
             return
 
         # Create a backup of the model,
@@ -121,7 +125,12 @@ class SpamBot(commands.Cog, name="Spam"):
 
         # Now teach a new model the new phrases and combine the chains together
 
-        new_model = markovify.NewlineText(phrases)
+        try:
+            new_model = markovify.NewlineText(phrases)
+        except KeyError:
+            utility.logerror("all", "key error when mc bot learning new sentences")
+            return
+
         combined_chain = markovify.combine([self.mc.chain, new_model.chain])
         self.mc.chain = combined_chain
         with open("trained/markov_chat.json", "w") as f:
@@ -253,6 +262,9 @@ class SpamBot(commands.Cog, name="Spam"):
         learnable = []
 
         for phrase in self.messages:
+
+            if len(phrase) == 0:
+                continue
 
             # Ignore messages which start with certain characters
 

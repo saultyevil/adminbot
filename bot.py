@@ -10,6 +10,7 @@ import psutil
 import atexit
 import datetime
 import discord
+import calendar as c
 
 from discord.ext import commands, tasks
 from globals import *
@@ -17,6 +18,8 @@ from cogs.chat import SpamBot
 from cogs.admin import AdminBot
 from cogs.embeds import MessageEmbeds
 from cogs import utility
+
+utility.open_logfile()
 
 # The bot itself
 
@@ -26,6 +29,8 @@ INTENTS.members = True
 bot = commands.Bot(
     command_prefix=SYMBOL, description="A very stupid Discord bot which can do auto-moderation", intents=INTENTS
 )
+
+# Add cogs to bot
 
 bot.add_cog(SpamBot(bot))
 bot.add_cog(AdminBot(bot))
@@ -60,30 +65,8 @@ async def daily_message():
 
     guild = bot.get_guild(ID_SERVER)
     channel = guild.get_channel(ID_MAIN_CHANNEL)
-    after = datetime.datetime.today() - datetime.timedelta(hours=24)
 
-    n_audit = n_abuse = n_72 = 0
-    async for abuse in guild.audit_logs(limit=MAX_AUDIT_QUERY, oldest_first=False):
-        n_audit += 1
-
-        # Break if we've gone far back in time, the filtering ability on
-        # audit_logs didn't seem to work...
-
-        if abuse.created_at < after:
-            break
-
-        # Ignore unbans, as these are not abuses
-
-        if abuse.action == discord.AuditLogAction.unban:
-            continue
-
-        # Ignore anything done by the bot and only count things done to
-        # Adam plus keep tally on number of 72 abuses
-
-        if abuse.target.id == ID_ABUSED and abuse.user.id != bot.user.id:
-            n_abuse += 1
-            if abuse.user.id == ID_ABUSER:
-                n_72 += 1
+    n_abuse, n_72 = await utility.count_audit_log(bot.user.id, guild)
 
     # Construct the update message. This is rather complicated, but the point is
     # to try and have the update message flow naturally for both single and
@@ -114,6 +97,34 @@ async def daily_message():
     await channel.send(message)
 
 
+@tasks.loop(hours=HOURS_IN_WEEK)
+async def weekend_announcement():
+    """Send a video of Daniel Craig saying it's the weekend."""
+
+    guild = bot.get_guild(ID_SERVER)
+    channel = guild.get_channel(ID_MAIN_CHANNEL)
+
+    await channel.send(":clock6:", file=discord.File("videos/weekend.mp4"))
+
+
+@weekend_announcement.before_loop
+async def sleep_until_friday_night():
+    """Determine how long it is until 6pm on Friday and sleep the bot until
+    then."""
+
+    now = datetime.datetime.now()
+    next_friday_date = now + datetime.timedelta((c.FRIDAY - now.weekday()) % 7)
+    when = datetime.datetime(
+        year=next_friday_date.year, month=next_friday_date.month, day=next_friday_date.day, hour=18, minute=0, second=1
+    )
+    dt_till_friday_night = when - now
+    sleep_time_seconds = dt_till_friday_night.days * 24 * 3600 + dt_till_friday_night.seconds
+    utility.log("all", "waiting {:.1f} hours till posting weekend message".format(sleep_time_seconds / 3600))
+    await asyncio.sleep(sleep_time_seconds)
+
+    await bot.wait_until_ready()
+
+
 @daily_message.before_loop
 async def sleep_until_midnight():
     """Determine how long it is until the end of the day , then sleep the bot
@@ -121,6 +132,7 @@ async def sleep_until_midnight():
 
     today = datetime.datetime.now()
     dt_till_midnight = datetime.datetime.combine((today + datetime.timedelta(days=1)), datetime.time.min) - today
+    utility.log("all", "waiting {:.1f} hours till midnight".format(dt_till_midnight.seconds / 3600))
     await asyncio.sleep(dt_till_midnight.seconds + 5)
 
     await bot.wait_until_ready()
@@ -146,14 +158,10 @@ async def on_ready():
     """Prepare the bot at launch. This opens the logfile, prints the guilds the
     bot is currently in and registers the atexit function."""
 
-    utility.open_logfile()
-
     welcomemsg = "Logged in as {0.user} in the current guilds:".format(bot)
     for n, guild in enumerate(bot.guilds):
         welcomemsg += "\n\t{0}). {1.name} ({1.id})".format(n, guild)
     utility.log("all", welcomemsg)
-
-    atexit.register(atclose)
 
 
 # Misc functions ---------------------------------------------------------------
@@ -170,4 +178,6 @@ def atclose():
 
 
 daily_message.start()
+weekend_announcement.start()
+atexit.register(atclose)
 bot.run(os.environ["BOT_TOKEN"])

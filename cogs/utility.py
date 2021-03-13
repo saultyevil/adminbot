@@ -11,6 +11,51 @@ import discord
 import datetime
 import numpy as np
 
+from globals import *
+
+
+async def count_audit_log(bot_id, guild, hours=24, limit=MAX_AUDIT_QUERY):
+    """Count the number of abuses in the audit log against Adam, and return
+    abuse reason.
+    Parameters
+    ----------
+    bot_id: int
+        The ID number for the bot, we will ignore this.
+    guild: discord.Guild
+        The Guild object to search the audit logs for.
+    hours: float
+        The number of hours back to search in the audit logs.
+    limit: int
+        The number of audit logs to search through."""
+
+    now = datetime.datetime.today()
+    after = now - datetime.timedelta(hours=hours)
+
+    n_audit = n_abuses = n_72 = 0
+    async for entry in guild.audit_logs(limit=limit, oldest_first=False):
+        n_audit += 1
+
+        # Break if we've gone too far back in time, the filtering ability on
+        # audit_logs didn't seem to work...
+
+        if entry.created_at < after:
+            break
+
+        # Ignore unbans, as these are not abuses
+
+        if entry.action == discord.AuditLogAction.unban:
+            continue
+
+        # Track the number of abuses, ignoring things done by the bot
+
+        if entry.target:  # sometimes entry.target is None
+            if entry.target.id == ID_ABUSED and entry.user.id != bot_id:
+                n_abuses += 1
+                if entry.user.id == ID_ABUSER:
+                    n_72 += 1
+
+        return n_abuses, n_72
+
 
 def create_abuse_message(audit_entry):
     """Create a message explain how the user was abused.
@@ -38,7 +83,7 @@ def create_abuse_message(audit_entry):
     return message
 
 
-def get_all_member_ids(guild):
+def get_all_user_ids(guild):
     """Get all the members in a guild.
     Parameters
     ----------
@@ -63,6 +108,16 @@ def get_badword(badwords=None):
         ]
 
     return badwords[np.random.randint(0, len(badwords))]
+
+
+def get_banned_user_ids(ban_list):
+    """Get the user IDs for the banned members in a guild.
+    Parameters
+    ----------
+    ban_list: discord.BanEntry
+        A list of ban entries."""
+
+    return [ban.user.id for ban in ban_list]
 
 
 def get_god_message(n_words, godwords=None):
@@ -90,6 +145,29 @@ def get_god_message(n_words, godwords=None):
     return message
 
 
+async def get_last_abuse(bot_id, guild, limit=MAX_AUDIT_QUERY):
+    """Get the last abuse of Adam in the audit log.
+    Parameters
+    ----------
+    bot_id: int
+        The ID number for the bot, we will ignore this.
+    guild: discord.Guild
+        The Guild object to search the audit logs for.
+    limit: int
+        The number of audit logs to search through."""
+
+    abuse = None
+    async for entry in guild.audit_logs(limit=limit):
+        if entry.action == discord.AuditLogAction.unban:
+            continue
+        if entry.target:
+            if entry.target.id == ID_ABUSED and entry.user.id != bot_id:
+                abuse = entry
+                break
+
+    return abuse
+
+
 def get_remove_reason(audit_entry):
     """Create a message explaining why the user was removed.
     Parameters
@@ -102,7 +180,7 @@ def get_remove_reason(audit_entry):
     elif audit_entry.action == discord.AuditLogAction.kick:
         how = "kicked"
     else:
-        return "left", ""
+        return "unknown", ""
 
     if audit_entry.reason is None:
         reason = "for no reason"
