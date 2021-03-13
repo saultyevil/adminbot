@@ -22,17 +22,6 @@ class MessageEmbeds(commands.Cog, name="Embeds"):
 
     # Commands -----------------------------------------------------------------
 
-    @commands.command(description="Post a picture of Adam being fed some grapes.", hidden=True)
-    @commands.cooldown(TIMES_B4_COOLDOWN, COOLDOWN_TIME_STANDARD, commands.BucketType.user)
-    async def grapes(self, ctx):
-        """Sends a picture of Adam being fed grapes by Billy to the chat."""
-
-        await ctx.send(
-            "https://scontent-lhr8-1.xx.fbcdn.net/v/t31.0-8/13653389_1782293768722510_3403034873347958592_o.jpg?_nc_cat"
-            "=109&ccb=3&_nc_sid=9267fe&_nc_ohc=vN2Rv1jUi_QAX81MuK_&_nc_ht=scontent-lhr8-1.xx&oh=c444d3f22032beaf7e588fb"
-            "e5aebd534&oe=60634875"
-        )
-
     @commands.command(description="Post a picture given a URL")
     @commands.cooldown(1, COOLDOWN_TIME_10_MIN, commands.BucketType.user)
     async def picture(self, ctx, url=None):
@@ -56,13 +45,7 @@ class MessageEmbeds(commands.Cog, name="Embeds"):
 
         xi = np.random.rand()
 
-        if xi < 0.05:
-            await ctx.send(
-                "https://scontent-lhr8-1.xx.fbcdn.net/v/t31.0-8/13653389_1782293768722510_3403034873347958592_o.jpg?_nc"
-                "_cat=109&ccb=3&_nc_sid=9267fe&_nc_ohc=vN2Rv1jUi_QAX81MuK_&_nc_ht=scontent-lhr8-1.xx&oh=c444d3f22032bea"
-                "f7e588fbe5aebd534&oe=60634875"
-            )
-        elif xi < 0.25:
+        if xi < 0.25:
             await ctx.send(url)
         else:
             utility.log(ctx.guild.name, "Adam wanted to send this picture to chat: " + url)
